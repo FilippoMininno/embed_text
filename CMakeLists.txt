@@ -1,10 +1,30 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 
 # Set extension name here
 set(TARGET_NAME embed_text)
 
-find_package(httplib CONFIG REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
+find_package(httplib CONFIG QUIET)
+if(NOT httplib_FOUND)
+  include(FetchContent)
+  FetchContent_Declare(
+    httplib
+    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+    GIT_TAG v0.18.5
+  )
+  set(HTTPLIB_COMPILE OFF CACHE BOOL "" FORCE)
+  FetchContent_MakeAvailable(httplib)
+endif()
+
+find_package(nlohmann_json CONFIG QUIET)
+if(NOT nlohmann_json_FOUND)
+  include(FetchContent)
+  FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+  )
+  FetchContent_MakeAvailable(nlohmann_json)
+endif()
 
 set(EXTENSION_NAME ${TARGET_NAME}_extension)
 set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
