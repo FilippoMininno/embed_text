@@ -82,9 +82,8 @@ static EmbedConfig ResolveConfig(ClientContext &context) {
 // inputs[i] is the text for local batch position i.
 // row_of[i] is the output row index that inputs[i] belongs to.
 // On return, embeddings[row_of[i]] is populated with the float vector.
-static void CallEmbeddingAPIBatch(const EmbedConfig &cfg, httplib::Client &cli,
-                                  const vector<string> &inputs, const vector<idx_t> &row_of,
-                                  vector<vector<float>> &embeddings) {
+static void CallEmbeddingAPIBatch(const EmbedConfig &cfg, httplib::Client &cli, const vector<string> &inputs,
+                                  const vector<idx_t> &row_of, vector<vector<float>> &embeddings) {
 	nlohmann::json body;
 	body["model"] = cfg.model;
 	body["input"] = inputs;
@@ -227,8 +226,8 @@ static void EmbedTextExecute(DataChunk &args, ExpressionState &state, Vector &re
 		}
 		auto &emb = embeddings[i];
 		if ((idx_t)emb.size() != dims) {
-			throw InvalidInputException("embed_text: expected %llu dimensions but got %zu",
-			                            (unsigned long long)dims, emb.size());
+			throw InvalidInputException("embed_text: expected %llu dimensions but got %zu", (unsigned long long)dims,
+			                            emb.size());
 		}
 		for (idx_t j = 0; j < dims; j++) {
 			child_data[i * dims + j] = emb[j];
@@ -265,14 +264,11 @@ static void LoadInternal(ExtensionLoader &loader) {
 	    LogicalType::VARCHAR, Value("http://localhost:11434/v1/embeddings"));
 	config.AddExtensionOption("embed_text_model", "Model name sent in the embeddings request body",
 	                          LogicalType::VARCHAR, Value(""));
-	config.AddExtensionOption("embed_text_dimensions",
-	                          "Embedding vector size; must be set before calling embed_text()",
+	config.AddExtensionOption("embed_text_dimensions", "Embedding vector size; must be set before calling embed_text()",
 	                          LogicalType::INTEGER, Value::INTEGER(0));
-	config.AddExtensionOption("embed_text_max_batch_rows",
-	                          "Maximum number of texts per HTTP request (must be <= 2048)",
+	config.AddExtensionOption("embed_text_max_batch_rows", "Maximum number of texts per HTTP request (must be <= 2048)",
 	                          LogicalType::INTEGER, Value::INTEGER(512));
-	config.AddExtensionOption("embed_text_max_batch_bytes",
-	                          "Maximum total byte size of texts per HTTP request",
+	config.AddExtensionOption("embed_text_max_batch_bytes", "Maximum total byte size of texts per HTTP request",
 	                          LogicalType::INTEGER, Value::INTEGER(1048576));
 
 	// Register secret type
