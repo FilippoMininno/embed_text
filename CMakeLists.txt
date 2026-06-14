@@ -55,6 +55,13 @@ else()
     target_compile_definitions(${LOADABLE_EXTENSION_NAME} PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
     target_link_libraries(${EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto)
     target_link_libraries(${LOADABLE_EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto)
+    # libanl provides getaddrinfo_a used by cpp-httplib; on RHEL/CentOS it is a
+    # separate library, while on Ubuntu it is part of libc.
+    find_library(LIBANL anl)
+    if(LIBANL)
+        target_link_libraries(${EXTENSION_NAME} ${LIBANL})
+        target_link_libraries(${LOADABLE_EXTENSION_NAME} ${LIBANL})
+    endif()
 endif()
 
 install(
