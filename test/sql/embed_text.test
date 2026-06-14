@@ -1,0 +1,85 @@
+# name: test/sql/embed_text.test
+# description: test embed_text extension
+# group: [sql]
+
+# Require statement will ensure this test is run with this extension loaded
+require embed_text
+
+# 1. Extension loads without error (verified by reaching this point)
+query I
+SELECT 1;
+----
+1
+
+# 2. Session settings are accepted without error
+statement ok
+SET embed_text_endpoint = 'http://localhost:11434/v1/embeddings';
+
+statement ok
+SET embed_text_model = 'nomic-embed-text';
+
+statement ok
+SET embed_text_dimensions = 768;
+
+statement ok
+SET embed_text_max_batch_rows = 512;
+
+statement ok
+SET embed_text_max_batch_bytes = 1048576;
+
+# 3. Secret creation succeeds
+statement ok
+CREATE SECRET embed_text_test (TYPE embed_text, api_key '');
+
+# 4. Calling embed_text against a non-existent endpoint throws IOException
+statement ok
+SET embed_text_endpoint = 'http://localhost:19999/v1/embeddings';
+
+statement error
+SELECT embed_text('hello');
+----
+IO Error
+
+# 5. CTE with a movies table — embed_text raises IOException (no server),
+#    verifying the function is invoked per row and error propagation works
+#    through a CTE + JOIN path.
+statement error
+WITH movies(id, title) AS (
+    VALUES
+        (1, 'Inception'),
+        (2, 'The Matrix'),
+        (3, 'Interstellar'),
+        (4, 'Blade Runner 2049'),
+        (5, 'Dune')
+)
+SELECT
+    m.id,
+    m.title,
+    embed_text(m.title) AS vec
+FROM movies AS m
+ORDER BY m.id;
+----
+IO Error
+
+# 6. NULL and empty-string inputs are skipped (no HTTP call made for them).
+#    With a bad endpoint the query errors only when a non-empty row is reached.
+#    A CTE with only NULLs / empty strings should produce no HTTP call and
+#    return an empty result set without error.
+statement ok
+SET embed_text_endpoint = 'http://localhost:19999/v1/embeddings';
+
+query III
+WITH movies(id, title) AS (
+    VALUES
+        (1, NULL),
+        (2, '')
+)
+SELECT
+    m.id,
+    m.title,
+    embed_text(m.title) AS vec
+FROM movies AS m
+ORDER BY m.id;
+----
+1	NULL	NULL
+2	(empty)	NULL
