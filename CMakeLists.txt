@@ -1,68 +1,43 @@
 cmake_minimum_required(VERSION 3.10)
-
-# Set extension name here
 set(TARGET_NAME embed_text)
 
-find_package(httplib CONFIG QUIET)
-if(NOT httplib_FOUND)
-  include(FetchContent)
-  FetchContent_Declare(
-    httplib
-    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
-    GIT_TAG v0.18.5
-  )
-  set(HTTPLIB_COMPILE OFF CACHE BOOL "" FORCE)
-  FetchContent_MakeAvailable(httplib)
-endif()
-
-find_package(nlohmann_json CONFIG QUIET)
-if(NOT nlohmann_json_FOUND)
-  include(FetchContent)
-  FetchContent_Declare(
-    nlohmann_json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG v3.11.3
-  )
-  FetchContent_MakeAvailable(nlohmann_json)
-endif()
+find_package(httplib CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 set(EXTENSION_NAME ${TARGET_NAME}_extension)
 set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
-
 project(${TARGET_NAME})
 
-set(CMAKE_CXX_STANDARD "17" CACHE STRING "C++ standard to enforce")
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(src/include)
-
 set(EXTENSION_SOURCES src/embed_text_extension.cpp)
 
 build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})
 build_loadable_extension(${TARGET_NAME} " " ${EXTENSION_SOURCES})
 
-target_link_libraries(${EXTENSION_NAME} httplib::httplib nlohmann_json::nlohmann_json)
-target_link_libraries(${LOADABLE_EXTENSION_NAME} httplib::httplib nlohmann_json::nlohmann_json)
+# Linux/RHEL: getaddrinfo_a lives in libanl; on Ubuntu it's in libc (so this is a no-op there)
+find_library(LIBANL anl)
 
-if(APPLE)
-    # macOS: use built-in SecureTransport, no OpenSSL needed
-    target_compile_definitions(${EXTENSION_NAME} PRIVATE CPPHTTPLIB_USE_OPENSSL=0)
-    target_compile_definitions(${LOADABLE_EXTENSION_NAME} PRIVATE CPPHTTPLIB_USE_OPENSSL=0)
-else()
-    # Linux / Windows: link system OpenSSL
-    find_package(OpenSSL REQUIRED)
-    target_compile_definitions(${EXTENSION_NAME} PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
-    target_compile_definitions(${LOADABLE_EXTENSION_NAME} PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
-    target_link_libraries(${EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto)
-    target_link_libraries(${LOADABLE_EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto)
-    # libanl provides getaddrinfo_a used by cpp-httplib; on RHEL/CentOS it is a
-    # separate library, while on Ubuntu it is part of libc.
-    find_library(LIBANL anl)
-    if(LIBANL)
-        target_link_libraries(${EXTENSION_NAME} ${LIBANL})
-        target_link_libraries(${LOADABLE_EXTENSION_NAME} ${LIBANL})
+# Same config for both the static lib and the loadable extension.
+foreach(_t ${EXTENSION_NAME} ${LOADABLE_EXTENSION_NAME})
+    target_compile_definitions(${_t} PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
+    target_link_libraries(${_t}
+        httplib::httplib nlohmann_json::nlohmann_json
+        OpenSSL::SSL OpenSSL::Crypto)
+
+    if(APPLE)
+        # cpp-httplib's Apple DNS path (getaddrinfo_with_timeout) uses CFHost.
+        target_link_libraries(${_t}
+            "-framework CoreFoundation" "-framework CFNetwork" "-framework Security")
+        # Let OpenSSL verify against the system keychain (vcpkg OpenSSL ships no CA bundle).
+        target_compile_definitions(${_t} PRIVATE CPPHTTPLIB_USE_CERTS_FROM_MACOSX_KEYCHAIN)
+    elseif(LIBANL)
+        target_link_libraries(${_t} ${LIBANL})
     endif()
-endif()
+endforeach()
 
 install(
   TARGETS ${EXTENSION_NAME}
