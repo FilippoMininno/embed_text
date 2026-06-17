@@ -2,7 +2,7 @@
 	"dependencies": [
 		"cpp-httplib",
 		"nlohmann-json",
-		{ "name": "openssl", "platform": "!osx" }
+		"openssl" 
 	],
 	"vcpkg-configuration": {
 		"overlay-ports": [
