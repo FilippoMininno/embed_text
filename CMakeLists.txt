@@ -5,18 +5,24 @@ find_package(httplib CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 
-# cpp-httplib's non-blocking getaddrinfo path calls GetAddrInfoExCancel, which
-# rtools/MinGW headers don't declare -> windows_amd64_mingw fails to compile.
-# Strip the definition from httplib's interface so the plain blocking
-# getaddrinfo path is used. Unconditional: it's an optional optimization.
-get_target_property(_httplib_defs httplib::httplib INTERFACE_COMPILE_DEFINITIONS)
-message(STATUS "[embed_text] httplib defs before: ${_httplib_defs}")
-if(_httplib_defs)
-    list(REMOVE_ITEM _httplib_defs CPPHTTPLIB_USE_NON_BLOCKING_GETADDRINFO)
-    set_target_properties(httplib::httplib PROPERTIES
-        INTERFACE_COMPILE_DEFINITIONS "${_httplib_defs}")
-    message(STATUS "[embed_text] httplib defs after:  ${_httplib_defs}")
-endif()
+# rtools/MinGW headers don't declare GetAddrInfoExCancel (a Win8+ API that
+# cpp-httplib's non-blocking DNS path calls). The CPPHTTPLIB_USE_NON_BLOCKING_
+# GETADDRINFO define reaches us through httplib's config and resists removal, so
+# neutralize the call directly in the vcpkg-installed header at configure time.
+file(GLOB_RECURSE _httplib_hdrs
+     "${CMAKE_BINARY_DIR}/vcpkg_installed/*/include/httplib.h")
+foreach(_hdr ${_httplib_hdrs})
+    file(READ "${_hdr}" _hl)
+    string(REPLACE
+        "::GetAddrInfoExCancel(&cancel_handle)"
+        "(void)cancel_handle"
+        _hl2 "${_hl}")
+    if(NOT _hl STREQUAL _hl2)
+        file(WRITE "${_hdr}" "${_hl2}")
+        message(STATUS "[embed_text] Patched ${_hdr}: neutralized GetAddrInfoExCancel")
+    endif()
+endforeach()
+
 
 set(EXTENSION_NAME ${TARGET_NAME}_extension)
 set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
