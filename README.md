@@ -1,3 +1,5 @@
+![Build Status](https://img.shields.io/github/actions/workflow/status/FilippoMininno/read_pdf/MainDistributionPipeline.yml)
+
 # embed_text — DuckDB Extension
 
 A DuckDB extension that adds an `embed_text()` scalar function. It calls any OpenAI-compatible `/v1/embeddings` HTTP endpoint and returns the result as a `FLOAT` array, making it easy to generate embeddings directly inside SQL queries.
