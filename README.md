@@ -1,4 +1,4 @@
-![Build Status](https://img.shields.io/github/actions/workflow/status/FilippoMininno/read_pdf/MainDistributionPipeline.yml)
+![Build Status](https://img.shields.io/github/actions/workflow/status/FilippoMininno/embed_text/MainDistributionPipeline.yml)
 
 # embed_text — DuckDB Extension
 
