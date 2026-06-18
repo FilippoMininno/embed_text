@@ -5,6 +5,20 @@ find_package(httplib CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 
+# cpp-httplib enables CPPHTTPLIB_USE_NON_BLOCKING_GETADDRINFO by default, whose
+# Windows path calls GetAddrInfoExCancel (Win8+). rtools/MinGW headers don't
+# declare it at this toolchain's _WIN32_WINNT, so the windows_amd64_mingw build
+# fails to compile. Drop the definition for MinGW so httplib uses the standard
+# blocking getaddrinfo (fine for simple outbound HTTPS).
+if(MINGW)
+    get_target_property(_httplib_defs httplib::httplib INTERFACE_COMPILE_DEFINITIONS)
+    if(_httplib_defs)
+        list(REMOVE_ITEM _httplib_defs CPPHTTPLIB_USE_NON_BLOCKING_GETADDRINFO)
+        set_target_properties(httplib::httplib PROPERTIES
+            INTERFACE_COMPILE_DEFINITIONS "${_httplib_defs}")
+    endif()
+endif()
+
 set(EXTENSION_NAME ${TARGET_NAME}_extension)
 set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
 project(${TARGET_NAME})
